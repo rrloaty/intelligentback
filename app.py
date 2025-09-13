@@ -4,7 +4,7 @@ import requests
 import os
 
 app = Flask(__name__)
-CORS(app)  # <<< This is the key to fix the network error
+CORS(app)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8433235666:AAGUgGfrFwj5dvE548wxyIpyzjrlaWXu_VA")
 
@@ -14,18 +14,41 @@ def home():
 
 @app.route("/submit", methods=["POST"])
 def submit():
-    data = request.get_json()
-    chat_id = data.get("chat_id")
-    form_data = data.get("form_data", {})
-
-    msg = f"📄 Page: {data.get('pageTitle', 'No Title')}\n📝 Form: {data.get('formName', 'Unnamed')}\n\n"
-    for k, v in form_data.items():
-        msg += f"{k}: {v}\n"
-
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    res = requests.post(url, json={"chat_id": chat_id, "text": msg})
-
-    if res.status_code == 200:
-        return jsonify({"status": "ok"}), 200
+    # Detect JSON or multipart/form-data
+    if request.is_json:
+        data = request.get_json()
+        bot_token = data.get("bot_token", BOT_TOKEN)
+        chat_id = data.get("chat_id")
+        form_data = data.get("form_data", {})
     else:
-        return jsonify({"status": "error", "details": res.text}), 400
+        bot_token = request.form.get("bot_token", BOT_TOKEN)
+        chat_id = request.form.get("chat_id")
+        form_data = dict(request.form)
+
+    if not chat_id:
+        return jsonify({"status": "error", "details": "chat_id is required"}), 400
+
+    # Compose text message
+    msg = f"📄 Page: {form_data.get('pageTitle', 'No Title')}\n📝 Form: {form_data.get('formName', 'Unnamed')}\n\n"
+    for k, v in form_data.items():
+        if k not in ["bot_token", "chat_id", "pageTitle", "formName"]:
+            msg += f"{k}: {v}\n"
+
+    # Send text
+    try:
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        requests.post(url, json={"chat_id": chat_id, "text": msg})
+    except Exception as e:
+        return jsonify({"status": "error", "details": f"Text sending failed: {str(e)}"}), 500
+
+    # Send all uploaded files (images, PDFs, docs, etc.)
+    try:
+        for key in request.files:
+            file = request.files[key]
+            files = {"document": (file.filename, file.stream, file.mimetype)}
+            url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+            requests.post(url, data={"chat_id": chat_id}, files=files)
+    except Exception as e:
+        return jsonify({"status": "error", "details": f"File sending failed: {str(e)}"}), 500
+
+    return jsonify({"status": "ok"}), 200

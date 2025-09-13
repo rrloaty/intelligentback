@@ -20,21 +20,23 @@ def submit():
         bot_token = data.get("bot_token", BOT_TOKEN)
         chat_id = data.get("chat_id")
         form_data = data.get("form_data", {})
+        page_title = data.get("pageTitle") or "No Title"
     else:
         bot_token = request.form.get("bot_token", BOT_TOKEN)
         chat_id = request.form.get("chat_id")
         form_data = dict(request.form)
+        page_title = request.form.get("pageTitle") or "No Title"
 
     if not chat_id:
         return jsonify({"status": "error", "details": "chat_id is required"}), 400
 
     # Compose text message
-    msg = f"📄 Page: {form_data.get('pageTitle', 'No Title')}\n📝 Form: {form_data.get('formName', 'Unnamed')}\n\n"
+    msg = f"📄 Page: {page_title}\n\n"
     for k, v in form_data.items():
-        if k not in ["bot_token", "chat_id", "pageTitle", "formName"]:
+        if k not in ["bot_token", "chat_id", "pageTitle"]:
             msg += f"{k}: {v}\n"
 
-    # Send text
+    # Send text message
     try:
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         requests.post(url, json={"chat_id": chat_id, "text": msg})

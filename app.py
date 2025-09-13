@@ -1,36 +1,36 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import requests
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS so frontend (GitHub Pages, etc.) can call backend
 
-# ⚠️ Keep your bot token safe here (never in frontend)
 BOT_TOKEN = "8433235666:AAGUgGfrFwj5dvE548wxyIpyzjrlaWXu_VA"
-TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-@app.route("/", methods=["GET"])
-def home():
-    return "✅ Telegram Form Backend is running!"
+@app.route("/submit", methods=["POST"])
+def submit_form():
+    data = request.json
 
-@app.route("/send", methods=["POST"])
-def send():
-    try:
-        data = request.json
-        chat_id = data.get("chat_id")
-        text = data.get("text")
+    # Extract form details
+    user_id = data.get("userId")
+    page_title = data.get("pageTitle", "No Title")
+    form_name = data.get("formName", "Unnamed Form")
 
-        if not chat_id or not text:
-            return jsonify({"ok": False, "error": "chat_id and text required"}), 400
+    # Build message for Telegram
+    message = f"📄 Page: {page_title}\n📝 Form: {form_name}\n\n"
+    for k, v in data.items():
+        if k not in ["userId", "pageTitle", "formName"]:
+            message += f"{k}: {v}\n"
 
-        res = requests.post(TELEGRAM_API, json={
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": "Markdown"
-        })
+    # Send to Telegram
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    resp = requests.post(url, json={"chat_id": user_id, "text": message})
 
-        return jsonify(res.json())
+    if resp.status_code == 200:
+        return jsonify({"status": "success"})
+    else:
+        return jsonify({"error": resp.text}), 500
 
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=10000)

